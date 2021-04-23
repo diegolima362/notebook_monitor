@@ -1,0 +1,17 @@
+name: monitor
+channels:
+ - defaults
+dependencies:
+ - python=3.6
+ - pip
+ - pip:
+   - pandas
+   - pymongo
+   - matplotlib
+   - numpy
+   - pandas
+   - seaborn
+   - sklearn
+   - ipykernel
+   - jupyter
+   - jupyterlab
