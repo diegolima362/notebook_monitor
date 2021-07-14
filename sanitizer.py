@@ -1,4 +1,5 @@
 from typing import Dict
+import parse_to_label as parser
 
 classification_to_int: Dict[str, int] = {
     "Negligible": 1,
@@ -85,12 +86,13 @@ int_to_weight: Dict[int, str] = {
 }
 
 
-def sanitize(d: dict):
+def sanitize(d: dict, date=False, string=False):
     # monitor data
-    d["classification"] = classification_to_int[d["classification"]]
-    d["configuration"] = configuration_to_int[d["configuration"]]
-    d["drugAmount"] = drug_amount_to_int[d["drugAmount"]]
-    d["lockoutInterval"] = lockoutInterval_to_int[d["lockoutInterval"]]
+    if not string:
+        d["classification"] = classification_to_int[d["classification"]]
+        d["configuration"] = configuration_to_int[d["configuration"]]
+        d["drugAmount"] = drug_amount_to_int[d["drugAmount"]]
+        d["lockoutInterval"] = lockoutInterval_to_int[d["lockoutInterval"]]
 
     # context data
     d["takingOtherMedications"] = 1 if d["context"][0]["takingOtherMedications"] else 0
@@ -100,17 +102,71 @@ def sanitize(d: dict):
     d["apnea"] = 1 if d["history"][0]["apnea"] else 0
     d["riskAge"] = 1 if d["history"][0]["riskAge"] else 0
     d["weight"] = weight_to_int[d["history"][0]["weight"]]
-    
-    if d['configuration'] == 2:
-        del d['heartRate']
-        del d['spo2']
-    elif d['configuration'] == 1:
-        del d['etCO2']
-        del d['respirationRate']
+
+    if d['configuration'] == 2 or d['configuration'] == 'BBNGeNIeHandler_Config2':
+        if not string:
+            del d['heartRate']
+            del d['spo2']
+        else:
+            d['heartRate'] = 0
+            d['spo2'] = 0
+    elif d['configuration'] == 1 or d['configuration'] == 'BBNGeNIeHandler_Config1':
+        if not string:
+            del d['etCO2']
+            del d['respirationRate']
+        else:
+            d['etCO2'] = 0
+            d['respirationRate'] = 0
 
     # remove object datatype items
     del d["_id"]
-    del d["date"]
+    if not date:
+        del d["date"]
+    del d["patientContextId"]
+    del d["history"]
+    del d["context"]
+
+    return d
+
+
+def sanitize_naive_bayes(d: dict, date=False):
+    # context data
+    d["takingOtherMedications"] = 'yes' if d["context"][0]["takingOtherMedications"] else 'no'
+    d["o2Supplement"] = d["context"][0]["o2Supplement"]
+
+    # history data
+    d["apnea"] = 'yes' if d["history"][0]["apnea"] else 'no'
+    d["riskAge"] = 'yes' if d["history"][0]["riskAge"] else 'no'
+    d["weight"] = d["history"][0]["weight"]
+
+    if d['configuration'] == 'BBNGeNIeHandler_Config2':
+        d['configuration'] = 'cfg_2'
+        d['etCO2'] = parser.etco2_to_label(d['etCO2'])
+        d['respirationRate'] = parser.rr_to_label(d['respirationRate'])
+
+        d['heartRate'] = 'no_data'
+        d['spo2'] = 'no_data'
+
+    elif d['configuration'] == 'BBNGeNIeHandler_Config1':
+        d['configuration'] = 'cfg_1'
+        d['heartRate'] = parser.hr_to_label(d['heartRate'])
+        d['spo2'] = parser.spo2_to_label(d['spo2'])
+
+        d['etCO2'] = 'no_data'
+        d['respirationRate'] = 'no_data'
+    else:
+        d['configuration'] = 'cfg_3'
+        d['heartRate'] = parser.hr_to_label(d['heartRate'])
+        d['spo2'] = parser.spo2_to_label(d['spo2'])
+        d['etCO2'] = parser.etco2_to_label(d['etCO2'])
+        d['respirationRate'] = parser.rr_to_label(d['respirationRate'])
+
+    d['riskValue'] = parser.risk_to_label(d['riskValue'])
+
+    # remove object datatype items
+    del d["_id"]
+    if not date:
+        del d["date"]
     del d["patientContextId"]
     del d["history"]
     del d["context"]
